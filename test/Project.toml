@@ -1,0 +1,6 @@
+[deps]
+Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
+PseudoPotentialData = "5751a51d-ac76-4487-a056-413ecf6fbe19"
+PseudoPotentialIO = "cb339c56-07fa-4cb2-923a-142469552264"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
