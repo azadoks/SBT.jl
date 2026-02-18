@@ -21,5 +21,5 @@ using SBT
         # f_sbt = SBT.sbt(0, g_sbt, r, direction=:inverse)
         # @test all(isapprox.(f_sbt, f_true, atol=1e-10))
     end
-    # include("hgh.jl")
+    include("hgh.jl")
 end

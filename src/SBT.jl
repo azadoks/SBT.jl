@@ -1,6 +1,5 @@
 module SBT
 
-using LinearAlgebra
 using Bessels: sphericalbesselj
 using SpecialFunctions: gamma
 using FFTW
