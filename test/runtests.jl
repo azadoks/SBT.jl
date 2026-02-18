@@ -7,6 +7,14 @@ using SpecialFunctions
 using SBT
 
 @testset "SBT.jl" begin
+    @testset "sbtfreq" begin
+        for n in [5, 7, 9, 10, 100, 101, 102, 1000, 1013, 78934]
+            k = sbtfreq(logrange(1e-5, 20, n))
+            plan = SBT.SBTPlan{Float64}(logrange(1e-5, 20, n), 0, 500.0)
+            @test all(k .== plan.k)
+        end
+    end
+
     @testset "β³/2 exp(-βr)" begin
         N = 256
         rmin = 1.0 / 1024 / 32
