@@ -80,6 +80,11 @@ function test_hgh(file::HghFile, plan)
                 P̄_true = hgh_projector_fourier.(file, i, l, plan.k)
                 P̄_sbt = 4π * SBT.sbt(l, P, plan; normalize=false)
                 @test all(isapprox.(P̄_sbt, P̄_true, atol=1e-10))
+                P_sbt = sqrt(2/π) * SBT.sbt(
+                    l, sqrt(2/π) .* P̄_sbt ./ (4π), plan;
+                    direction=:inverse, normalize=false
+                )
+                @test all(isapprox.(P_sbt, P, atol=1e-5))
             end
         end
     end
