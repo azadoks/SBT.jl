@@ -4,7 +4,8 @@ Implementation of the Spherical Bessel Transform (SBT) on logarithmic radial gri
 [1] J. D. Talman, NumSBT: A subroutine for calculating spherical Bessel transforms numerically, Computer Physics Communications 180, 332 (2009).
 
 ## Quick start
-```
+
+```julia
 # install the package
 pkg> add https://github.com/azadoks/SBT.jl.git
 
@@ -25,7 +26,8 @@ julia> g, k = sbt(l, f, r);
 ```
 
 ## Planning an SBT
-```
+
+```julia
 # set up
 julia> using SBT
 julia> lmax=5; kmax=500.0;
