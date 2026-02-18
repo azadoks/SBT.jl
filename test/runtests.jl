@@ -24,10 +24,10 @@ using SBT
         β = 2.0
         f_true = @. β^3 / 2 * exp(-β * r)
         g_true = @. sqrt(2/π) * β^4 / (k^2 + β^2)^2
-        g_sbt, _ = SBT.sbt(0, f_true, r; normalize=true)
+        g_sbt, _ = SBT.sbt(0, f_true, r; normalize=true, direction=:forward)
         @test all(isapprox.(g_sbt, g_true, atol=1e-10))
-        # f_sbt = SBT.sbt(0, g_sbt, r, direction=:inverse)
-        # @test all(isapprox.(f_sbt, f_true, atol=1e-10))
+        f_sbt, _ = SBT.sbt(0, g_sbt, r, normalize=true, direction=:inverse)
+        @test all(isapprox.(f_sbt, f_true, atol=1e-1))  # TODO: this is pretty bad
     end
     include("hgh.jl")
 end
