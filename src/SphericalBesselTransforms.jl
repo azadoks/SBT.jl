@@ -1,4 +1,4 @@
-module SBT
+module SphericalBesselTransforms
 
 using LinearAlgebra
 using Bessels: sphericalbesselj
@@ -240,4 +240,4 @@ function sbt(
     return sbt(ℓ, f, plan, np_in; kwargs...), plan.k
 end
 
-end # module SBT
+end # module SphericalBesselTransforms

@@ -1,4 +1,4 @@
-name = "SBT"
+name = "SphericalBesselTransforms"
 uuid = "a230e6b4-601e-4928-8f3a-78619b4f94b1"
 version = "0.1.0"
 authors = ["Austin Zadoks <austin.zadoks@protonmail.com>"]

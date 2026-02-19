@@ -2,7 +2,7 @@ using Pkg; Pkg.activate("examples");
 using PseudoPotentialData
 using PseudoPotentialIO
 using CairoMakie
-using SBT
+using SphericalBesselTransforms
 
 # Implementation of HGH pseudopotential quantities, stolen from DFTK.jl
 include("hgh.jl")
@@ -11,7 +11,7 @@ family = PseudoFamily("cp2k.nc.sr.lda.v0_1.largecore.gth")
 pspfile = HghFile(family[:Si])
 
 r = collect(logrange(1.0 / 1024 / 32, 20.0, 512))
-plan = SBT.SBTPlan{Float64}(r, pspfile.lmax, 500.0)
+plan = SBTPlan{Float64}(r, pspfile.lmax, 500.0)
 
 begin
     fig = Figure()
@@ -23,8 +23,8 @@ begin
         for i in 1:size(pspfile.h[l+1], 1)
             β_r = hgh_projector_direct.(pspfile, i, l, r)
             β_k = hgh_projector_fourier.(pspfile, i, l, plan.k)
-            β_k_sbt = 4π * SBT.sbt(l, β_r, plan; normalize=false)
-            β_r_sbt = sqrt(2/π) * SBT.sbt(
+            β_k_sbt = 4π * sbt(l, β_r, plan; normalize=false)
+            β_r_sbt = sqrt(2/π) * sbt(
                 l, sqrt(2/π) .* β_k_sbt ./ (4π), plan;
                 direction=:inverse, normalize=false
             )

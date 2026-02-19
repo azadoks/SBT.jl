@@ -70,7 +70,7 @@ function test_hgh(file::HghFile, plan)
         Vloc_corr = Vloc .+ sum(file.zion) ./ plan.r
         V̄loc_true = hgh_local_fourier.(file, plan.k)
         V̄loc_true_corr = V̄loc_true .+ 4π * sum(file.zion) ./ plan.k.^2
-        V̄loc_sbt = 4π * SBT.sbt(0, Vloc_corr, plan; normalize=false)
+        V̄loc_sbt = 4π * sbt(0, Vloc_corr, plan; normalize=false)
         @test all(isapprox.(V̄loc_sbt, V̄loc_true_corr, atol=1e-6))
     end
     @testset "β" begin
@@ -78,9 +78,9 @@ function test_hgh(file::HghFile, plan)
             for i in 1:size(file.h[l+1], 1)
                 P = hgh_projector_direct.(file, i, l, plan.r)
                 P̄_true = hgh_projector_fourier.(file, i, l, plan.k)
-                P̄_sbt = 4π * SBT.sbt(l, P, plan; normalize=false)
+                P̄_sbt = 4π * sbt(l, P, plan; normalize=false)
                 @test all(isapprox.(P̄_sbt, P̄_true, atol=1e-10))
-                P_sbt = sqrt(2/π) * SBT.sbt(
+                P_sbt = sqrt(2/π) * sbt(
                     l, sqrt(2/π) .* P̄_sbt ./ (4π), plan;
                     direction=:inverse, normalize=false
                 )
@@ -97,7 +97,7 @@ end
     kmax = 500.0
     ℓmax = 4
     r = collect(logrange(rmin, rmax, N))
-    plan = SBT.SBTPlan{Float64}(r, ℓmax, kmax)
+    plan = SBTPlan{Float64}(r, ℓmax, kmax)
     for family_name in HGH_FAMILIES
         @testset "$(family_name)" begin
             family = PseudoFamily(family_name)
