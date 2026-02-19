@@ -71,6 +71,10 @@ struct SBTPlan{T}
     r32::Vector{T} # r^(3/2)
     rmin32::T # rmin^(3/2)
     rext32::Vector{T} # rext^(3/2)
+    large_k_rfft_plan
+    large_k_ifft_plan
+    small_k_rfft_plan
+    small_k_irfft_plan
 end
 
 function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where {T}
@@ -101,6 +105,12 @@ function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where
     rmin32 = rmin^(3 / 2)
     rext32 = rext .^ (3 / 2)
 
+    large_k_rfft_plan = plan_rfft(zeros(T, 2nr))
+    large_k_ifft_plan = plan_ifft(zeros(Complex{T}, 2nr))
+
+    small_k_rfft_plan = plan_rfft(zeros(T, 2nr))
+    small_k_irfft_plan = plan_irfft(zeros(Complex{T}, nr + 1), 2nr)
+
     return SBTPlan{T}(
         ℓmax,
         r, rmin, nr, Δρ,
@@ -108,6 +118,8 @@ function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where
         rext, post_div_fac,
         Mℓ_t, M̄ℓ_t,
         r32, rmin32, rext32,
+        large_k_rfft_plan, large_k_ifft_plan,
+        small_k_rfft_plan, small_k_irfft_plan
     )
 end
 
@@ -142,21 +154,15 @@ end
     end
 
     # Step 2
-    y = rfft(frα)
+    y = plan.large_k_rfft_plan * frα
 
     # Step 3
     yeM::Vector{Complex{T}} = zeros(Complex{T}, 2plan.nr)
-    for i in 1:plan.nr
-        yeM[i] = conj(y[i]) * plan.Mℓ_t[i, ℓ + 1]
-    end
+    yeM[1:plan.nr] .= conj.(y[1:plan.nr]) .* plan.Mℓ_t[1:plan.nr, ℓ + 1]
 
     # Steps 4 and 5
-    z::Vector{T} = real.(ifft(yeM))
-    g::Vector{T} = zeros(T, plan.nr)
-    c::T = (rmin / kmin)^(3 / 2) * 2plan.nr * sqrt_2_over_π
-    for i in 1:plan.nr
-        g[i] = c * real(z[plan.nr + i]) * plan.post_div_fac[i]
-    end
+    z = real.(plan.large_k_ifft_plan * yeM)
+    g = (rmin / kmin)^(3 / 2) * 2plan.nr * sqrt_2_over_π .* z[plan.nr+1:end] .* plan.post_div_fac
     return g
 end
 
@@ -176,14 +182,13 @@ end
     else
         error("Invalid direction: $direction")
     end
-    y::Vector{Complex{T}} = rfft(frα)
+    y::Vector{Complex{T}} = plan.small_k_rfft_plan * frα
     yeM::Vector{Complex{T}} = zeros(Complex{T}, plan.nr + 1)
     for i in eachindex(yeM)
         yeM[i] = conj(y[i]) * plan.M̄ℓ_t[i, ℓ + 1] * sqrt_2_over_π
     end
-    z::Vector{T} = real.(irfft(yeM, 2plan.nr)) * 2plan.nr
-    z[1:plan.nr] .*= plan.Δρ
-    return z[1:plan.nr]
+    z::Vector{T} = real.(plan.small_k_irfft_plan * yeM) .* 2plan.nr
+    return z[1:plan.nr] * plan.Δρ
 end
 
 function sbt(
