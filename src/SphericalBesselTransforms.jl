@@ -6,6 +6,7 @@ using SpecialFunctions: gamma
 using FFTW
 
 export SBTPlan
+export sbt!
 export sbt
 export sbtfreq
 
@@ -83,6 +84,7 @@ struct SBTPlan{T}
     irfft_result_cache::Vector{T}
     frα_cache::Vector{T}
     yeM_cache::Vector{Complex{T}}
+    g_cache::Vector{T}
 end
 
 function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where {T}
@@ -125,6 +127,7 @@ function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where
 
     frα_cache = zeros(T, 2nr)
     yeM_cache = zeros(Complex{T}, 2nr)
+    g_cache = zeros(T, nr)
 
     return SBTPlan{T}(
         ℓmax,
@@ -136,11 +139,12 @@ function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where
         large_k_rfft_plan, large_k_ifft_plan,
         small_k_rfft_plan, small_k_irfft_plan,
         rfft_result_cache, ifft_result_cache, irfft_result_cache,
-        frα_cache, yeM_cache
+        frα_cache, yeM_cache, g_cache
     )
 end
 
-@inbounds function sbt_large_k(
+@inbounds function sbt_large_k!(
+        g::Vector{T},
         ℓ::Integer,
         f::AbstractVector{T},
         plan::SBTPlan{T},
@@ -180,14 +184,26 @@ end
 
     # Steps 4 and 5
     mul!(plan.ifft_result_cache, plan.large_k_ifft_plan, plan.yeM_cache)
-    g = (
-        (rmin / kmin)^(3 / 2) * 2plan.nr * sqrt_2_over_π
-            .* real(plan.ifft_result_cache[(plan.nr + 1):end]) .* plan.post_div_fac
-    )
+    c = (rmin / kmin)^(3 / 2) * 2plan.nr * sqrt_2_over_π
+    for i in 1:plan.nr
+        g[i] = c * real(plan.ifft_result_cache[plan.nr + i]) * plan.post_div_fac[i]
+    end
     return g
 end
+function sbt_large_k(
+        ℓ::Integer,
+        f::AbstractVector{T},
+        plan::SBTPlan{T},
+        np_in::Integer,
+        direction::Symbol,
+        normalize::Bool
+    )::Vector{T} where {T}
+    g = zeros(T, plan.nr)
+    return sbt_large_k!(g, ℓ, f, plan, np_in, direction, normalize)
+end
 
-@inbounds function sbt_small_k(
+@inbounds function sbt_small_k!(
+        g::Vector{T},
         ℓ::Integer,
         f::AbstractVector{T},
         plan::SBTPlan{T},
@@ -205,12 +221,50 @@ end
     plan.frα_cache[(plan.nr + 1):end] .= T(0)
     mul!(plan.rfft_result_cache, plan.small_k_rfft_plan, plan.frα_cache)
     for i in 1:plan.nr + 1
-        plan.yeM_cache[i] = conj(plan.rfft_result_cache[i]) * plan.M̄ℓ_t[i, ℓ + 1] * sqrt_2_over_π
+        plan.yeM_cache[i] = (
+            conj(plan.rfft_result_cache[i]) * plan.M̄ℓ_t[i, ℓ + 1] * sqrt_2_over_π
+        )
     end
-    mul!(plan.irfft_result_cache, plan.small_k_irfft_plan, view(plan.yeM_cache, 1:(plan.nr + 1)))
-    return real(plan.irfft_result_cache[1:plan.nr]) .* 2plan.nr .* plan.Δρ
+    mul!(
+        plan.irfft_result_cache,
+        plan.small_k_irfft_plan,
+        view(plan.yeM_cache, 1:(plan.nr + 1))
+    )
+    for i in 1:plan.nr
+        g[i] = real(plan.irfft_result_cache[i]) * 2plan.nr * plan.Δρ
+    end
+    # g .= real(plan.irfft_result_cache[1:plan.nr]) .* 2plan.nr .* plan.Δρ
+    return g
+end
+function sbt_small_k(
+        ℓ::Integer,
+        f::AbstractVector{T},
+        plan::SBTPlan{T},
+        direction::Symbol,
+        normalize::Bool
+    )::Vector{T} where {T}
+    g = zeros(T, plan.nr)
+    return sbt_small_k!(g, ℓ, f, plan, direction, normalize)
 end
 
+function sbt!(
+        g::Vector{T},
+        ℓ::Integer,
+        f::AbstractVector{T},
+        plan::SBTPlan{T},
+        np_in::Integer = 1; normalize = false,
+        direction = :forward
+    )::Vector{T} where {T}
+    sbt_large_k!(g, ℓ, f, plan, np_in, direction, normalize)
+    sbt_small_k!(plan.g_cache, ℓ, f, plan, direction, normalize)
+    minloc = argmin(1:plan.nr) do i
+        gi_large::Float64 = g[i]
+        gi_small::Float64 = plan.g_cache[i]
+        abs(gi_large - gi_small)
+    end
+    copy!(view(g, 1:minloc), view(plan.g_cache, 1:minloc))
+    return g
+end
 function sbt(
         ℓ::Integer,
         f::AbstractVector{T},
@@ -218,15 +272,8 @@ function sbt(
         np_in::Integer = 1; normalize = false,
         direction = :forward
     )::Vector{T} where {T}
-    g_large_k = sbt_large_k(ℓ, f, plan, np_in, direction, normalize)
-    g_small_k = sbt_small_k(ℓ, f, plan, direction, normalize)
-    minloc = argmin(1:plan.nr) do i
-        gi::Float64 = g_large_k[i]
-        zi::Float64 = g_small_k[i]
-        abs(gi - zi)
-    end
-    g_large_k[1:minloc] .= g_small_k[1:minloc]
-    return g_large_k
+    g = zeros(T, plan.nr)
+    return sbt!(g, ℓ, f, plan, np_in; normalize=normalize, direction=direction)
 end
 
 function sbt(
