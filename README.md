@@ -1,5 +1,5 @@
 # SphericalBesselTransforms.jl
-Implementation of the Spherical Bessel Transform (SBT) on logarithmic radial grids as described in [1]. Largely adapted from the python implementation [pySBT](https://github.com/QijingZheng/pySBT).
+Implementation of the spherical Bessel transform (SBT) on logarithmic radial grids as described in [1]. Largely adapted from the python implementation [pySBT](https://github.com/QijingZheng/pySBT).
 
 [1] J. D. Talman, NumSBT: A subroutine for calculating spherical Bessel transforms numerically, Computer Physics Communications 180, 332 (2009).
 
@@ -7,10 +7,10 @@ Implementation of the Spherical Bessel Transform (SBT) on logarithmic radial gri
 
 ```julia
 # install the package
-pkg> add https://github.com/azadoks/SBT.jl.git
+pkg> add https://github.com/azadoks/SphericalBesselTransforms.jl.git
 
 # load the module
-julia> using SBT
+julia> using SphericalBesselTransforms
 
 # set up a _logarithmic_ grid
 julia> r = collect(logrange(1e-5, 20, 1000));
@@ -29,7 +29,7 @@ julia> g, k = sbt(l, f, r);
 
 ```julia
 # set up
-julia> using SBT
+julia> using SphericalBesselTransforms
 julia> lmax=5; kmax=500.0;
 julia> r = collect(logrange(1e-5, 20, 1000));
 julia> f = [0.5 * beta^3 * exp(-beta * ri) for ri in r, beta in (2, 3, 4)];
