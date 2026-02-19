@@ -1,4 +1,4 @@
-# SBT.jl
+# SphericalBesselTransforms.jl
 Implementation of the Spherical Bessel Transform (SBT) on logarithmic radial grids as described in [1]. Largely adapted from the python implementation [pySBT](https://github.com/QijingZheng/pySBT).
 
 [1] J. D. Talman, NumSBT: A subroutine for calculating spherical Bessel transforms numerically, Computer Physics Communications 180, 332 (2009).
