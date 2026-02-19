@@ -81,6 +81,8 @@ struct SBTPlan{T}
     rfft_result_cache::Vector{Complex{T}}
     ifft_result_cache::Vector{Complex{T}}
     irfft_result_cache::Vector{T}
+    frα_cache::Vector{T}
+    yeM_cache::Vector{Complex{T}}
 end
 
 function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where {T}
@@ -121,6 +123,9 @@ function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where
     ifft_result_cache = zeros(Complex{T}, 2nr)
     irfft_result_cache = zeros(T, 2nr)
 
+    frα_cache = zeros(T, 2nr)
+    yeM_cache = zeros(Complex{T}, 2nr)
+
     return SBTPlan{T}(
         ℓmax,
         r, rmin, nr, Δρ,
@@ -130,7 +135,8 @@ function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where
         r32, rmin32, rext32,
         large_k_rfft_plan, large_k_ifft_plan,
         small_k_rfft_plan, small_k_irfft_plan,
-        rfft_result_cache, ifft_result_cache, irfft_result_cache
+        rfft_result_cache, ifft_result_cache, irfft_result_cache,
+        frα_cache, yeM_cache
     )
 end
 
@@ -156,25 +162,24 @@ end
         error("Invalid direction: $direction")
     end
     # Step 1
-    frα::Vector{T} = zeros(T, 2plan.nr)
+    # frα::Vector{T} = zeros(T, 2plan.nr)
     for i in 1:plan.nr
-        frα[i] = C * plan.rext[i]^(np_in + ℓ) * plan.rext32[i] / plan.rmin32
+        plan.frα_cache[i] = C * plan.rext[i]^(np_in + ℓ) * plan.rext32[i] / plan.rmin32
     end
     for i in 1:plan.nr
-        frα[plan.nr + i] = f[i] * plan.r32[i] / plan.rmin32
+        plan.frα_cache[plan.nr + i] = f[i] * plan.r32[i] / plan.rmin32
     end
 
     # Step 2
-    mul!(plan.rfft_result_cache, plan.large_k_rfft_plan, frα)
+    mul!(plan.rfft_result_cache, plan.large_k_rfft_plan, plan.frα_cache)
 
     # Step 3
-    yeM::Vector{Complex{T}} = zeros(Complex{T}, 2plan.nr)
-    yeM[1:plan.nr] .= (
-        conj.(plan.rfft_result_cache[1:plan.nr]) .* plan.Mℓ_t[1:plan.nr, ℓ + 1]
-    )
+    for i in 1:plan.nr
+        plan.yeM_cache[i] = conj(plan.rfft_result_cache[i]) * plan.Mℓ_t[i, ℓ + 1]
+    end
 
     # Steps 4 and 5
-    mul!(plan.ifft_result_cache, plan.large_k_ifft_plan, yeM)
+    mul!(plan.ifft_result_cache, plan.large_k_ifft_plan, plan.yeM_cache)
     g = (
         (rmin / kmin)^(3 / 2) * 2plan.nr * sqrt_2_over_π
             .* real(plan.ifft_result_cache[(plan.nr + 1):end]) .* plan.post_div_fac
@@ -190,20 +195,19 @@ end
         normalize::Bool
     )::Vector{T} where {T}
     sqrt_2_over_π = normalize ? sqrt(2 / T(π)) : T(1)
-    frα::Vector{T} = zeros(T, 2plan.nr)
     if direction == :forward
-        frα[1:plan.nr] .= plan.r .^ 3 .* f
+        plan.frα_cache[1:plan.nr] .= plan.r .^ 3 .* f
     elseif direction == :inverse
-        frα[1:plan.nr] .= plan.k .^ 3 .* f
+        plan.frα_cache[1:plan.nr] .= plan.k .^ 3 .* f
     else
         error("Invalid direction: $direction")
     end
-    mul!(plan.rfft_result_cache, plan.small_k_rfft_plan, frα)
-    yeM::Vector{Complex{T}} = zeros(Complex{T}, plan.nr + 1)
-    for i in eachindex(yeM)
-        yeM[i] = conj(plan.rfft_result_cache[i]) * plan.M̄ℓ_t[i, ℓ + 1] * sqrt_2_over_π
+    plan.frα_cache[(plan.nr + 1):end] .= T(0)
+    mul!(plan.rfft_result_cache, plan.small_k_rfft_plan, plan.frα_cache)
+    for i in 1:plan.nr + 1
+        plan.yeM_cache[i] = conj(plan.rfft_result_cache[i]) * plan.M̄ℓ_t[i, ℓ + 1] * sqrt_2_over_π
     end
-    mul!(plan.irfft_result_cache, plan.small_k_irfft_plan, yeM)
+    mul!(plan.irfft_result_cache, plan.small_k_irfft_plan, view(plan.yeM_cache, 1:(plan.nr + 1)))
     return real(plan.irfft_result_cache[1:plan.nr]) .* 2plan.nr .* plan.Δρ
 end
 
