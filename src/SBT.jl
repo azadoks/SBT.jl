@@ -1,5 +1,6 @@
 module SBT
 
+using LinearAlgebra
 using Bessels: sphericalbesselj
 using SpecialFunctions: gamma
 using FFTW
@@ -47,7 +48,9 @@ end
 Return the `k` values corresponding to a logarithmic grid `r`.
 """
 function sbtfreq(r, kmax = 500)
-    all(r .≈ logrange(minimum(r), maximum(r), length(r))) || error("Input r must be logarithmically spaced")
+    if !all(r .≈ logrange(minimum(r), maximum(r), length(r)))
+        error("Input r must be logarithmically spaced")
+    end
     ρmin = log(minimum(r))
     ρmax = log(maximum(r))
     Δρ = (ρmax - ρmin) / (length(r) - 1)
@@ -75,6 +78,9 @@ struct SBTPlan{T}
     large_k_ifft_plan
     small_k_rfft_plan
     small_k_irfft_plan
+    rfft_result_cache::Vector{Complex{T}}
+    ifft_result_cache::Vector{Complex{T}}
+    irfft_result_cache::Vector{T}
 end
 
 function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where {T}
@@ -111,6 +117,10 @@ function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where
     small_k_rfft_plan = plan_rfft(zeros(T, 2nr))
     small_k_irfft_plan = plan_irfft(zeros(Complex{T}, nr + 1), 2nr)
 
+    rfft_result_cache = zeros(Complex{T}, nr + 1)
+    ifft_result_cache = zeros(Complex{T}, 2nr)
+    irfft_result_cache = zeros(T, 2nr)
+
     return SBTPlan{T}(
         ℓmax,
         r, rmin, nr, Δρ,
@@ -119,7 +129,8 @@ function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where
         Mℓ_t, M̄ℓ_t,
         r32, rmin32, rext32,
         large_k_rfft_plan, large_k_ifft_plan,
-        small_k_rfft_plan, small_k_irfft_plan
+        small_k_rfft_plan, small_k_irfft_plan,
+        rfft_result_cache, ifft_result_cache, irfft_result_cache
     )
 end
 
@@ -154,15 +165,20 @@ end
     end
 
     # Step 2
-    y = plan.large_k_rfft_plan * frα
+    mul!(plan.rfft_result_cache, plan.large_k_rfft_plan, frα)
 
     # Step 3
     yeM::Vector{Complex{T}} = zeros(Complex{T}, 2plan.nr)
-    yeM[1:plan.nr] .= conj.(y[1:plan.nr]) .* plan.Mℓ_t[1:plan.nr, ℓ + 1]
+    yeM[1:plan.nr] .= (
+        conj.(plan.rfft_result_cache[1:plan.nr]) .* plan.Mℓ_t[1:plan.nr, ℓ + 1]
+    )
 
     # Steps 4 and 5
-    z = real.(plan.large_k_ifft_plan * yeM)
-    g = (rmin / kmin)^(3 / 2) * 2plan.nr * sqrt_2_over_π .* z[plan.nr+1:end] .* plan.post_div_fac
+    mul!(plan.ifft_result_cache, plan.large_k_ifft_plan, yeM)
+    g = (
+        (rmin / kmin)^(3 / 2) * 2plan.nr * sqrt_2_over_π
+            .* real(plan.ifft_result_cache[(plan.nr + 1):end]) .* plan.post_div_fac
+    )
     return g
 end
 
@@ -182,13 +198,13 @@ end
     else
         error("Invalid direction: $direction")
     end
-    y::Vector{Complex{T}} = plan.small_k_rfft_plan * frα
+    mul!(plan.rfft_result_cache, plan.small_k_rfft_plan, frα)
     yeM::Vector{Complex{T}} = zeros(Complex{T}, plan.nr + 1)
     for i in eachindex(yeM)
-        yeM[i] = conj(y[i]) * plan.M̄ℓ_t[i, ℓ + 1] * sqrt_2_over_π
+        yeM[i] = conj(plan.rfft_result_cache[i]) * plan.M̄ℓ_t[i, ℓ + 1] * sqrt_2_over_π
     end
-    z::Vector{T} = real.(plan.small_k_irfft_plan * yeM) .* 2plan.nr
-    return z[1:plan.nr] * plan.Δρ
+    mul!(plan.irfft_result_cache, plan.small_k_irfft_plan, yeM)
+    return real(plan.irfft_result_cache[1:plan.nr]) .* 2plan.nr .* plan.Δρ
 end
 
 function sbt(
