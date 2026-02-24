@@ -31,10 +31,10 @@ export sbtfreq
 
     # ℓ=2...ℓmax
     # Eq.(24)
-    for iℓ in 2:ℓmax
-        ℓ = iℓ - 1
-        ϕℓ = atan.(2t / (2ℓ + 1))
-        Mℓ_t[:, iℓ + 1] .= exp.(-2im * ϕℓ) .* Mℓ_t[:, iℓ - 1]
+    for ℓ in 2:ℓmax
+        iℓ = ℓ + 1
+        ϕ = atan.(2t / (2 * (ℓ - 1) + 1))
+        Mℓ_t[:, iℓ] .= exp.(-2im * ϕ) .* Mℓ_t[:, iℓ - 2]
     end
 
     # Eq.(35)
@@ -166,7 +166,6 @@ end
         error("Invalid direction: $direction")
     end
     # Step 1
-    # frα::Vector{T} = zeros(T, 2plan.nr)
     for i in 1:plan.nr
         plan.frα_cache[i] = C * plan.rext[i]^(np_in + ℓ) * plan.rext32[i] / plan.rmin32
     end
@@ -233,7 +232,6 @@ end
     for i in 1:plan.nr
         g[i] = real(plan.irfft_result_cache[i]) * 2plan.nr * plan.Δρ
     end
-    # g .= real(plan.irfft_result_cache[1:plan.nr]) .* 2plan.nr .* plan.Δρ
     return g
 end
 function sbt_small_k(
