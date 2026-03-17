@@ -189,6 +189,7 @@ end
     end
     return g
 end
+
 function sbt_large_k(
         ℓ::Integer,
         f::AbstractVector{T},
@@ -234,6 +235,7 @@ end
     end
     return g
 end
+
 function sbt_small_k(
         ℓ::Integer,
         f::AbstractVector{T},
@@ -246,7 +248,7 @@ function sbt_small_k(
 end
 
 function sbt!(
-        g::Vector{T},
+        g::AbstractVector{T},
         ℓ::Integer,
         f::AbstractVector{T},
         plan::SBTPlan{T},
@@ -263,6 +265,7 @@ function sbt!(
     copy!(view(g, 1:minloc), view(plan.g_cache, 1:minloc))
     return g
 end
+
 function sbt(
         ℓ::Integer,
         f::AbstractVector{T},
@@ -277,8 +280,8 @@ end
 function sbt(
         ℓ::Integer,
         f::AbstractVector{T},
-        r::AbstractVector{T}; kmax = 500,
-        np_in = 1,
+        r::AbstractVector{T};
+        kmax = 500, np_in = 1;
         kwargs...
     ) where {T}
     plan = SBTPlan{T}(r, ℓ, convert(T, kmax))
