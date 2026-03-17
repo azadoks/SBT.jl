@@ -149,14 +149,14 @@ function SBTPlan(r::AbstractVector, ℓmax = 10, kmax = 500)
 end
 
 @inbounds function sbt_large_k!(
-        g::Vector{T},
+        g::AbstractVector{T},
         ℓ::Integer,
         f::AbstractVector{T},
         plan::SBTPlan{T},
         np_in::Integer,
         direction::Symbol,
         normalize::Bool
-    )::Vector{T} where {T}
+    ) where {T}
     # Follows the procedure outlined in Sec.(3) of the paper following Eq.(32)
     sqrt_2_over_π = normalize ? sqrt(2 / T(π)) : T(1)
     if direction == :forward
@@ -202,19 +202,19 @@ function sbt_large_k(
         np_in::Integer,
         direction::Symbol,
         normalize::Bool
-    )::Vector{T} where {T}
+    ) where {T}
     g = zeros(T, plan.nr)
     return sbt_large_k!(g, ℓ, f, plan, np_in, direction, normalize)
 end
 
 @inbounds function sbt_small_k!(
-        g::Vector{T},
+        g::AbstractVector{T},
         ℓ::Integer,
         f::AbstractVector{T},
         plan::SBTPlan{T},
         direction::Symbol,
         normalize::Bool
-    )::Vector{T} where {T}
+    ) where {T}
     sqrt_2_over_π = normalize ? sqrt(2 / T(π)) : T(1)
     if direction == :forward
         plan.frα_cache[1:plan.nr] .= plan.r .^ 3 .* f
@@ -247,7 +247,7 @@ function sbt_small_k(
         plan::SBTPlan{T},
         direction::Symbol,
         normalize::Bool
-    )::Vector{T} where {T}
+    ) where {T}
     g = zeros(T, plan.nr)
     return sbt_small_k!(g, ℓ, f, plan, direction, normalize)
 end
@@ -259,7 +259,7 @@ function sbt!(
         plan::SBTPlan{T},
         np_in::Integer = 1; normalize = false,
         direction = :forward
-    )::Vector{T} where {T}
+    ) where {T}
     sbt_large_k!(g, ℓ, f, plan, np_in, direction, normalize)
     sbt_small_k!(plan.g_cache, ℓ, f, plan, direction, normalize)
     minloc = argmin(1:plan.nr) do i
@@ -277,7 +277,7 @@ function sbt(
         plan::SBTPlan{T},
         np_in::Integer = 1; normalize = false,
         direction = :forward
-    )::Vector{T} where {T}
+    ) where {T}
     g = zeros(T, plan.nr)
     return sbt!(g, ℓ, f, plan, np_in; normalize=normalize, direction=direction)
 end
