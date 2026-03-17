@@ -143,6 +143,11 @@ function SBTPlan{T}(r::AbstractVector{T}, ℓmax::Int = 10, kmax::T = 500) where
     )
 end
 
+function SBTPlan(r::AbstractVector, ℓmax = 10, kmax = 500)
+    T = promote_type(eltype(r), typeof(kmax))
+    return SBTPlan{T}(convert.(T, r), ℓmax, convert(T, kmax))
+end
+
 @inbounds function sbt_large_k!(
         g::Vector{T},
         ℓ::Integer,
@@ -281,7 +286,7 @@ function sbt(
         ℓ::Integer,
         f::AbstractVector{T},
         r::AbstractVector{T};
-        kmax = 500, np_in = 1;
+        kmax = 500, np_in = 1,
         kwargs...
     ) where {T}
     plan = SBTPlan{T}(r, ℓ, convert(T, kmax))
